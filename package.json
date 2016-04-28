@@ -1,0 +1,19 @@
+{
+  "name": "@panosoft/slate-init-db",
+  "version": "0.1.0",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "panosoft/slate-init-db",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@panosoft/slate-db-utils": "^0.1.4",
+    "bunyan": "^1.8.1",
+    "co": "^4.6.0",
+    "commander": "^2.9.0",
+    "is_js": "^0.8.0",
+    "ramda": "^0.21.0"
+  }
+}
