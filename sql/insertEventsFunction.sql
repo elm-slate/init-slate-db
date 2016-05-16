@@ -39,7 +39,7 @@ BEGIN
 	END LOOP;
 	-- RAISE NOTICE 'countRows ----> %  maxIndex ----> %', countRows, maxIndex;
 	IF countRows < 1 THEN
-		RAISE EXCEPTION 'No inserted rows found with parameters', countRows USING HINT = 'id column for row to be inserted must be a parameter of the form "$1[x]" where x is the 1-indexed based index of the row';
+		RAISE EXCEPTION 'No inserted rows found with parameters' USING HINT = 'id column for row to be inserted must be a parameter of the form "$1[x]" where x is the 1-indexed based index of the row';
 	END IF;
 	IF countRows != maxIndex THEN
 		RAISE EXCEPTION 'Number of rows to be inserted % does not match the highest row index %', countRows, maxIndex USING HINT = 'The highest id column parameter index does not match the number of rows to be inserted';
