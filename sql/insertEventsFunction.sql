@@ -19,7 +19,6 @@ BEGIN
 	LOCK TABLE ID IN ACCESS EXCLUSIVE MODE;
 	-- get timestamp to insert in each ts column
 	ts := transaction_timestamp();
-	-- RAISE NOTICE 'insertValuesList----> %', insertValuesList;
 	-- insertValuesList is an array of string values.  Each string value in the array represents the column values to insert for one or more rows for one INSERT statement.
 	-- Each string value is formatted to follow the VALUES keyword of the statement "INSERT INTO events (id, ts, entity_id, event) VALUES "
 	-- (e.g. '($1[1], $2, '<entity_id literal>', '<json string for event>'),($1[2], $2, '<entity_id literal>', '<json string for event>')'.
@@ -30,15 +29,12 @@ BEGIN
 	FOREACH insertValues IN ARRAY insertValuesList
 	LOOP
 		SELECT ARRAY(SELECT unnest(regexp_matches(insertValues, '\$1\[([0-9]+)\]', 'g'))) into idxs;
-		-- RAISE NOTICE 'row idxs ----> %', idxs;
 		SELECT ARRAY(SELECT unnest(regexp_matches(insertValues, '(\$2),', 'g'))) into tsMatches;
-		-- RAISE NOTICE 'row ts substitution parameter values ----> %', tsMatches;
 		countRows := 0;
 		lastIdx := 0;
 		-- find the row count, maximum index for a row, and check that the indices are consecutive positive integers.
 		FOREACH idx IN ARRAY idxs
 		LOOP
-			-- RAISE NOTICE 'lastIdx ----> %  idx ----> %', lastIdx, idx;
 			countRows := countRows + 1;
 			IF lastIdx = 0 THEN
 				lastIdx := idx;
@@ -52,7 +48,6 @@ BEGIN
 				END IF;
 			END IF;
 		END LOOP;
-		-- RAISE NOTICE 'countRows ----> %  maxIndex ----> %', countRows, maxIndex;
 		IF countRows < 1 THEN
 			RAISE EXCEPTION 'No inserted rows found with id substitution parameters' USING HINT = 'id column substitution parameter value for row to be inserted must be of the form "$1[x]" where x is the 1-indexed based index of the row';
 		END IF;
@@ -62,17 +57,14 @@ BEGIN
 		IF countRows != coalesce(array_length(tsMatches, 1), 0) THEN
 			RAISE EXCEPTION 'Number of rows to be inserted (%) does not match number of rows with a ts substitution parameter (%)', countRows, coalesce(array_length(tsMatches, 1), 0) USING HINT = 'ts column parameter substitution value for row to be inserted must be "$2"';
 		END IF;
-		-- RAISE NOTICE 'Number of rows to be inserted ------> %, number of rows with a ts substitution parameter ------> %', countRows, coalesce(array_length(tsMatches, 1), 0);
 		countRowsByInsert := array_append(countRowsByInsert, countRows);
 		countAllRows := countAllRows + countRows;
 	END LOOP;
-	-- RAISE NOTICE 'countRowsByInsert ----> %  countAllRows ----> %', countRowsByInsert, countAllRows;
 	-- update id table to point to the next starting id value to use
 	UPDATE id SET id = id + countAllRows RETURNING id INTO nextStartId;
 	-- start id for first insert statement
 	startId := nextStartId - countAllRows;
 	idx := 1;
-	-- RAISE NOTICE 'startId ----> %  nextStartId ----> %', startId, nextStartId;
 	FOREACH insertValues IN ARRAY insertValuesList
 	LOOP
 		-- get ids to use for each inserted row's id column
@@ -84,7 +76,6 @@ BEGIN
 		startId := startId + countRowsByInsert[idx];
 		idx := idx + 1;
 	END LOOP;
-	-- RAISE NOTICE 'countAllRowsInserted----> %', countAllRowsInserted;
 	RETURN countAllRowsInserted;
 END;
 $$ LANGUAGE plpgsql;
