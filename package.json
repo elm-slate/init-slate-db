@@ -7,10 +7,10 @@
     "minor": "npm version minor && git push --follow-tags && npm publish"
   },
   "repository": "panosoft/slate-init-db",
+  "license": "Unlicense",
   "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@panosoft/slate-db-utils": "^0.1.4",
+    "@panosoft/slate-db-utils": "^0.1.6",
     "bunyan": "^1.8.1",
     "co": "^4.6.0",
     "commander": "^2.9.0",
