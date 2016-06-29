@@ -1,11 +1,14 @@
 const path = require('path');
 const fs = require('fs');
-const program = require('commander');
+const commander = require('commander');
+const prompt = require('prompt');
 const R = require('ramda');
+const Ru = require('@panosoft/ramda-utils'); // this may not be used in the code base but is here for production patches/tests
 const is = require('is_js');
 const co = require('co');
 const bunyan = require('bunyan');
 const bformat = require('bunyan-format');
+const {dasherize} = require('underscore.string');
 const dbUtils = require('@panosoft/slate-db-utils');
 
 const formatOut = bformat({ outputMode: 'long' });
@@ -26,176 +29,46 @@ process.on('unhandledRejection', (reason, p) => {
 	logger.error("Unhandled Rejection at: Promise ", p, " reason: ", reason);
 	exit(1);
 });
-process.on('SIGINT', _ => {
-	logger.info(`SIGINT received.`);
+const handleSignal = signal => process.on(signal, _ => {
+	logger.info(`${signal} received.`);
 	exit(0);
 });
-process.on('SIGTERM', _ => {
-	logger.info(`SIGTERM received.`);
-	exit(0);
-});
+R.forEach(handleSignal, ['SIGINT', 'SIGTERM']);
 
-program
-	.option('-c, --config-filename <path>', 'configuration file name')
+commander
+	.option('--host <name>', 'database server name')
+	.option('--user <name>', 'database user name.   must have database creation privileges.  if not specified, prompt for user name.')
+	.option('--password <password>', 'database password.  if not specified, prompt for password.')
+	.option('--connect-timeout <millisecs>', 'database connection timeout.  if not specified, defaults to 15000 millisecs.')
 	.option('-n, --new-database <name>', 'name of database to create')
 	.option('-t, --table-type <source | destination>', 'type of events table to create in new database:  must be "source"  or "destination"')
 	.option('--dry-run', 'if specified, display run parameters and end program without performing database initialization')
 	.parse(process.argv);
 
-// const validateArguments = arguments => {
-// 	let errors = [];
-// 	if (!arguments.configFilename || is.not.string(arguments.configFilename)) {
-// 		errors = R.append('config-filename is invalid:  ' + arguments.configFilename, errors);
-// 	}
-// 	// non-quoted Postgresql identifier must begin with 'a-z' or '_' and remaining characters must be 'a-z', '0-9' or '_'
-// 	if (!arguments.newDatabase || !(R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, arguments.newDatabase).length)) {
-// 		errors = R.append(`new-database is invalid:  "${arguments.newDatabase}"`, errors);
-// 	}
-// 	if (arguments.tableType !== 'source' && arguments.tableType !== 'destination') {
-// 		errors = R.append(`table-type is invalid:  "${arguments.tableType}"`, errors);
-// 	}
-// 	if (arguments.args.length > 0) {
-// 		errors = R.append(`Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${program.args}`, errors);
-// 	}
-// 	return errors;
-// };
-// const validator = validation => R.compose(R.filter(e => e.length), R.map(v => validation(v) ? '' : v.errMsg));
-// const isValidString = s => s && s.length && is.string(s);
-// const validateArguments = args => {
-// 	return validator(v => v.validIf(args))([
-// 		{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
-// 		{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
-// 		{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
-// 		{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
-// 	]);
-// };
-// const validator = validation => R.map(
-// 	function(v) {
-// 		if (validation(v)) {
-// 			return '';
-// 		}
-// 		else {
-// 			return v.errMsg;
-// 		}
-// 	});
-
-var trace = R.curry((tag, x) => {
-	console.log(tag, x);
-	return x;
-});
-
-const validator = validation => R.compose(trace('after filter'), R.filter(e => e.length), R.map(v => validation(v) ? '' : v.errMsg));
-const isValidString = s => s && s.length && is.string(s);
-const validateArguments = args => {
-	// var mapfn = R.map(v => v.validIf(args) ? '' : v.errMsg);
-	// var mapResult = mapfn([
-	// 	{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
-	// 	{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
-	// 	{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
-	// 	{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
-	// ]);
-	//
-	// console.log(mapResult);
-	//
-	// var validatorResults = validator(v => v.validIf(args)) ([
-	// 	{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
-	// 	{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
-	// 	{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
-	// 	{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
-	// ]);
-	//
-	// console.log(validatorResults);
-	//
-	return validator(v => v.validIf(args)) ([
-		{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
-		{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
-		{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
-		{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
-	]);
-};
-// const validateConnectionParameters = (parameters, parametersName) => {
-// 	var errors = [];
-// 	if (parameters) {
-// 		if (!parameters.host || is.not.string(parameters.host)) {
-// 			errors = R.append(`${parametersName}.host is missing or invalid:  ${parameters.host}`, errors);
-// 		}
-// 		if (parameters.userName && is.not.string(parameters.userName)) {
-// 			errors = R.append(`${parametersName}.userName is invalid:  ${parameters.userName}`, errors);
-// 		}
-// 		if (parameters.password && is.not.string(parameters.password)) {
-// 			errors = R.append(`${parametersName}.password is invalid:  ${parameters.password}`, errors);
-// 		}
-// 	}
-// 	else {
-// 		errors = R.append(`connection parameters for ${parametersName} are missing or invalid`, errors);
-// 	}
-// 	return errors;
-// };
-const validateConnectionParameters = (parameters, parametersName) => {
-	if (!parameters)
-		return [`connection parameters for ${parametersName} are missing or invalid`];
-	return validator(v => v.validIf(parameters))([
-		{validIf: parameters => isValidString(parameters.host), errMsg: `${parametersName}.host is missing or invalid:  ${parameters.host}`},
-		{validIf: parameters => isValidString(parameters.user), errMsg: `${parametersName}.userName is invalid:  ${parameters.user}`},
-		{validIf: parameters => isValidString(parameters.password), errMsg: `${parametersName}.password is invalid:  ${parameters.password}`}
+const validator = validation => R.compose(R.filter(e => e.length), R.map(v => validation(v) ? '' : v.errMsg(v.param)));
+const isValidOptionString = s => s && s.length && is.string(s) && !R.test(/^-/, s);
+const isPositiveInteger = n => n && is.integer(n) && is.positive(n);
+const isOptional = (o, key) => o[key] === undefined;
+const validateParameters = args => {
+	return validator(v => v.validIf(args, v.param)) ([
+		{param: 'user', validIf: (args, param) => isOptional(args, param) || isValidOptionString(args[param]), errMsg: param => `${param} is invalid:  ${JSON.stringify(args[param])}`},
+		{param: 'password', validIf: (args, param) => isOptional(args, param) || isValidOptionString(args[param]), errMsg: param => `${param} is invalid:  "${args[parm]}"`},
+		{param: 'connectTimeout', validIf: (args, param) => isOptional(args, param) || isPositiveInteger(args[param]), errMsg: param => `${dasherize(param)} is not a positive integer:  ${JSON.stringify(args.__connectTimeout)}`},
+		{param: 'host', validIf: (args, param) => isValidOptionString(args[param]), errMsg: param => `${param} is missing or invalid:  ${JSON.stringify(args[param])}`},
+		{param: 'newDatabase', validIf: (args, param) => isValidOptionString(args[param]) && R.test(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args[param]), errMsg: param => `${dasherize(param)} is missing or invalid:  ${JSON.stringify(args[param])}`},
+		{param: 'tableType', validIf: (args, param) => isValidOptionString(args[param]) && (args[param] === 'source' || args[param] === 'destination'), errMsg: param => `${dasherize(param)} is missing or invalid:  ${JSON.stringify(args.tableType)}`},
+		{param: 'args', validIf: (args, param) => args[param].length === 0, errMsg: param => `Some command arguments were unrecognized.  There may be command arguments after " -- " or syntax errors in the command line.  Unrecognized Command Arguments:  ${args[param]}`}
 	]);
 };
 
-const logConfig = (config, arguments) => {
-	logger.info(`Connection Params:`, R.pick(['host', 'user'], config.connectionParams));
-	logger.info(`Database to create:  "${arguments.newDatabase}"`);
-	logger.info(`Type of events table to create:  "${arguments.tableType}"`);
-	if (config.connectTimeout)
-		logger.info(`Database Connection Timeout (millisecs):`, config.connectTimeout);
+const logConfig = (args) => {
+	logger.info(`Connection Params:  ${JSON.stringify(R.pick(['host', 'user'], args))}`);
+	logger.info(`Database to create:  ${JSON.stringify(args.newDatabase)}`);
+	logger.info(`Type of events table to create:  ${JSON.stringify(args.tableType)}`);
+	if (args.connectTimeout)
+		logger.info(`Database Connection Timeout (millisecs):  ${JSON.stringify(args.connectTimeout)}`);
 };
-/////////////////////////////////////////////////////////////////////////////////////
-//  validate configuration
-/////////////////////////////////////////////////////////////////////////////////////
-const argumentErrors = validateArguments(program);
 
-if (argumentErrors.length > 0) {
-	logger.error(`Invalid command line arguments:${'\n' + R.join('\n', argumentErrors)}`);
-	program.help();
-	process.exit(2);
-}
-// get absolute name so logs will display absolute path
-const configFilename = path.isAbsolute(program.configFilename) ? program.configFilename : path.resolve('.', program.configFilename);
-
-let config;
-
-try {
-	logger.info(`${'\n'}Config File Name:  "${configFilename}"${'\n'}`);
-	config = require(configFilename);
-}
-catch (err) {
-	logger.error({err: err}, `Exception detected processing configuration file:`);
-	process.exit(1);
-}
-
-var configErrors = [];
-configErrors = R.concat(validateConnectionParameters(config.connectionParams, 'config.connectionParams'), configErrors);
-if (config.connectTimeout) {
-	if (is.not.integer(config.connectTimeout) || is.not.positive(config.connectTimeout)) {
-		configErrors = R.append(`config.connectTimeout is invalid:  "${config.connectTimeout}"`, configErrors);
-	}
-}
-if (configErrors.length > 0) {
-	logger.error(`Invalid configuration parameters:${'\n' + R.join('\n', configErrors)}`);
-	program.help();
-	process.exit(2);
-}
-
-const createEventsNotifyTriggerFunctionString = fs.readFileSync('sql/eventsNotifyTriggerFunction.sql', 'utf8');
-const createInsertEventsFunctionString = fs.readFileSync('sql/insertEventsFunction.sql', 'utf8');
-
-logConfig(config, program);
-if (program.dryRun) {
-	logger.info(`--dry-run specified, ending program`);
-	process.exit(2);
-}
-/////////////////////////////////////////////////////////////////////////////////////
-//  to reach this point, configuration must be valid and --dry-run was not specified
-/////////////////////////////////////////////////////////////////////////////////////
 const doesDatabaseExist = co.wrap(function *(databaseName, connectionString) {
 	let dbClient;
 	try {
@@ -249,52 +122,46 @@ const createDatabase = co.wrap(function *(databaseName, connectionString) {
 });
 
 const createAndInitializeIdTable = co.wrap(function *(dbClient, dbClientDatabase) {
-	var sqlStatement =
-		`CREATE TABLE id (` +
-		`	id bigint NOT NULL, ` +
-		`CONSTRAINT id_pkey PRIMARY KEY (id)) ` +
-		`WITH (OIDS=FALSE)`;
-	yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
+	yield dbUtils.executeSQLStatement(dbClient, `
+		CREATE TABLE id (
+			id bigint NOT NULL,
+		CONSTRAINT id_pkey PRIMARY KEY (id))
+		WITH (OIDS=FALSE)`);
 	logger.info(`id table created in database "${dbClientDatabase}"`);
-	sqlStatement = `INSERT INTO id (id) VALUES (1)`;
-	yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
+	yield dbUtils.executeSQLStatement(dbClient, `INSERT INTO id (id) VALUES (1)`);
 	logger.info(`id table initialized in database "${dbClientDatabase}"`);
 });
 
 const createEventsTable = co.wrap(function *(dbClient, dbClientDatabase) {
-	var sqlStatement =
-		`CREATE TABLE events (` +
-		`	id bigint NOT NULL, ` +
-		`	ts timestamp with time zone NOT NULL, ` +
-		`	entity_id uuid NOT NULL, ` +
-		`	event jsonb NOT NULL, ` +
-		`CONSTRAINT events_pkey PRIMARY KEY (id)) ` +
-		`WITH (OIDS=FALSE)`;
-	yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
+	yield dbUtils.executeSQLStatement(dbClient, `
+		CREATE TABLE events (
+			id bigint NOT NULL,
+			ts timestamp with time zone NOT NULL,
+			entity_id uuid NOT NULL,
+			event jsonb NOT NULL,
+		CONSTRAINT events_pkey PRIMARY KEY (id))
+		WITH (OIDS=FALSE)`
+	);
 	logger.info(`events table created in database "${dbClientDatabase}"`);
-	sqlStatement = `CREATE INDEX events_event_name on events ((event #>> '{name}'))`;
-	yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_name on events ((event #>> '{name}'))`);
 	logger.info(`events_event_name index created in database "${dbClientDatabase}"`);
-	sqlStatement = `CREATE INDEX events_ts on events (ts)`;
-	yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_ts on events (ts)`);
 	logger.info(`events_ts index created in database "${dbClientDatabase}"`);
-	sqlStatement = `CREATE INDEX events_entity_id on events (entity_id)`;
-	yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_entity_id on events (entity_id)`);
 	logger.info(`events_entity_id index created in database "${dbClientDatabase}"`);
-
 });
 
-const createSourceDatabaseFunctions = co.wrap(function *(dbClient, dbClientDatabase) {
-	result = yield dbUtils.executeSQLStatement(dbClient, createEventsNotifyTriggerFunctionString);
+const createSourceDatabaseFunctions = co.wrap(function *(dbClient, dbClientDatabase, sqlStatements) {
+	result = yield dbUtils.executeSQLStatement(dbClient, sqlStatements.notifyTriggerFunction);
 	logger.info(`events_notify_trigger function created in database "${dbClientDatabase}"`);
-	result = yield dbUtils.executeSQLStatement(dbClient, createInsertEventsFunctionString);
+	result = yield dbUtils.executeSQLStatement(dbClient, sqlStatements.insertEventsFunction);
 	logger.info(`insert_events function created in database "${dbClientDatabase}"`);
 });
 
-const createSourceTable = co.wrap(function *(dbClient, dbClientDatabase) {
+const createSourceTable = co.wrap(function *(dbClient, dbClientDatabase, sqlStatements) {
 	try {
 		yield createEventsTable(dbClient, dbClientDatabase);
-		yield createSourceDatabaseFunctions(dbClient, dbClientDatabase);
+		yield createSourceDatabaseFunctions(dbClient, dbClientDatabase, sqlStatements);
 		var sqlStatement = `CREATE TRIGGER events_table_trigger AFTER INSERT ON events FOR EACH ROW EXECUTE PROCEDURE events_notify_trigger()`;
 		result = yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
 		logger.info(`event_table_trigger created in database "${dbClientDatabase}"`);
@@ -316,25 +183,20 @@ const createDestinationTable = co.wrap(function *(dbClient, dbClientDatabase) {
 	}
 });
 
-const initializeDatabase = co.wrap(function *(newDatabaseName, tableType) {
+const initializeDatabase = co.wrap(function *(args, sqlStatements) {
 	let dbClient;
 	try {
-		dbClient = yield dbUtils.createClient(dbUtils.createConnectionUrl(R.merge(R.pick(['host', 'user', 'password'], config.connectionParams),
-													{databaseName: newDatabaseName})));
+		dbClient = yield dbUtils.createClient(dbUtils.createConnectionUrl(R.merge(R.pick(['host', 'user', 'password'], args), {databaseName: args.newDatabase})));
 		const dbClientDatabase = dbClient.database;
 		dbClient.on('error', function(err) {
 			logger.error({err: err}, `Error detected for database "${dbClientDatabase}"`);
 			throw err;
 		});
-		if (tableType === 'source') {
-			yield createSourceTable(dbClient, dbClientDatabase);
-		}
-		else if (tableType === 'destination') {
-			yield createDestinationTable(dbClient, dbClientDatabase);
-		}
-		else {
-			throw new Error(`Program logic error.  events tableType not = "source" or "destination":  "${tableType}"`);
-		}
+		yield R.cond([
+			[R.equals('source'), _ => createSourceTable(dbClient, dbClientDatabase, sqlStatements)],
+			[R.equals('destination'), _=> createDestinationTable(dbClient, dbClientDatabase)],
+			[R.T, _ => {throw new Error(`Program logic error.  events tableType not = "source" or "destination":  ${JSON.stringify(args.tableType)}`)}]
+		])(args.tableType);
 	}
 	finally {
 		if (dbClient) {
@@ -343,29 +205,96 @@ const initializeDatabase = co.wrap(function *(newDatabaseName, tableType) {
 	}
 });
 
-const initDb = co.wrap(function * (newDatabaseName, tableType) {
-	dbUtils.setDefaultOptions({logger: logger, connectTimeout: config.connectTimeout});
-	const masterConnectionString = dbUtils.createConnectionUrl(R.merge(R.pick(['host', 'user', 'password'], config.connectionParams), {databaseName: 'postgres'}));
-	const result = yield doesDatabaseExist(newDatabaseName, masterConnectionString);
-	if (result) {
-		return {err: true, message: `Database "${newDatabaseName}" already exists.  Processing ended with errors.`};
-	}
-	else {
-		yield createDatabase(newDatabaseName, masterConnectionString);
-		yield initializeDatabase(newDatabaseName, tableType);
-		return {message: 'Processing completed successfully'};
-	}
+const getCredentialsFromPrompt = options => {
+	const schema = {
+		properties: {
+			user: {
+				description: 'Database User',
+				type: 'string',
+				required: false
+			},
+			password: {
+				description: 'Database Password',
+				hidden: true,
+				type: 'string',
+				required: false,
+				// only ask for password if a valid user value was on the command line or was input when prompted
+				ask: _ => options.user || (prompt.history('user') && prompt.history('user').value.length > 0) || false
+			}
+		}
+	};
+	return new Promise((resolve, reject) => {
+		prompt.get(schema, (err, result) => {
+			if (err) {
+				logger.error(err);
+				resolve(err);
+			}
+			else {
+				resolve(result);
+			}
+		});
+	});
+};
+
+const getCredentials = co.wrap(function *(options) {
+	// use user and password values from command line if present otherwise prompt
+	prompt.override = options;
+	prompt.start();
+	return yield getCredentialsFromPrompt(options);
 });
 
-initDb(program.newDatabase, program.tableType)
+const getParametersToValidate = co.wrap(function *(commander) {
+	// change '' to undefined.  the value '' is returned for user and password from getCredentials if user hits only the <enter> key when prompted for value.
+	const credentialArgs = R.map(s => s === '' ? undefined : s, yield getCredentials(commander.opts()));
+	const toInteger = s => s ? (R.test(/^[0-9]+$/, s) ? Number(s) : NaN) : undefined;
+	const getIntegerValues = R.compose(R.map(toInteger), R.pickAll(['connectTimeout']));
+	const integerArgs = getIntegerValues(commander.opts());
+	const integerArgsAsString = {__connectTimeout: commander.opts()['connectTimeout']};
+	// user and password can be specified in the command line.
+	const stringArgs = R.merge(R.pick(['host', 'user', 'password', 'newDatabase', 'tableType', 'dryRun', 'args'], commander.opts()), R.pick(['args'], commander));
+	return R.mergeAll([stringArgs, integerArgs, integerArgsAsString, credentialArgs]);
+});
+
+const initDb = co.wrap(function * (commander) {
+	const parametersToValidate = yield getParametersToValidate(commander);
+	const runParameters = R.pickBy((value, key) => value && key !== 'args' && key.substring(0, 2) !== '__', parametersToValidate);
+	console.log(parametersToValidate, 'parametersToValidate');
+	console.log(runParameters, 'runParameters');
+	const errors = yield validateParameters(parametersToValidate);
+	if (errors.length > 0) {
+		return {err: true, displayHelp: true, message: `Invalid command line arguments:${'\n' + R.join('\n', errors)}`};
+	}
+	logConfig(runParameters);
+	const sqlStatements = {
+		notifyTriggerFunction: fs.readFileSync('sql/eventsNotifyTriggerFunction.sql', 'utf8'),
+		insertEventsFunction: fs.readFileSync('sql/insertEventsFunction.sql', 'utf8')
+	};
+	if (runParameters.dryRun === true) {
+		return ({message: `--dry-run specified, ending program`});
+	}
+	dbUtils.setDefaultOptions({logger: logger, connectTimeout: runParameters.connectTimeout});
+	const masterConnectionString = dbUtils.createConnectionUrl(R.merge(R.pick(['host', 'user', 'password'], runParameters), {databaseName: 'postgres'}));
+	const result = yield doesDatabaseExist(runParameters.newDatabase, masterConnectionString);
+	if (result) {
+		return {err: true, message: `Database "${runParameters.newDatabase}" already exists.  Processing ended with errors.`};
+	}
+	yield createDatabase(runParameters.newDatabase, masterConnectionString);
+	yield initializeDatabase(runParameters, sqlStatements);
+	return {message: 'Processing completed successfully'};
+});
+
+initDb(commander)
 .then(result =>  {
 	if (result.err) {
 		logger.error(result.message);
-		exit(0);
+		if (result.displayHelp) {
+			commander.help();
+		}
+		exit(1);
 	}
 	else {
 		logger.info(result.message);
-		exit(1);
+		exit(0);
 	}
 })
 .catch(err => {
