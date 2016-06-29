@@ -2,6 +2,7 @@
   "name": "@panosoft/slate-init-db",
   "version": "0.1.0",
   "description": "",
+  "bin": "bin/run.js",
   "scripts": {
     "patch": "npm version patch && git push --follow-tags && npm publish",
     "minor": "npm version minor && git push --follow-tags && npm publish"
@@ -10,11 +11,15 @@
   "license": "Unlicense",
   "author": "",
   "dependencies": {
+    "@panosoft/ramda-utils": "^0.2.8",
     "@panosoft/slate-db-utils": "^0.1.6",
     "bunyan": "^1.8.1",
+    "bunyan-format": "^0.2.1",
     "co": "^4.6.0",
     "commander": "^2.9.0",
     "is_js": "^0.8.0",
-    "ramda": "^0.21.0"
+    "prompt": "^1.0.0",
+    "ramda": "^0.21.0",
+    "underscore.string": "^3.3.4"
   }
 }
