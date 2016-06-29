@@ -5,14 +5,18 @@ const R = require('ramda');
 const is = require('is_js');
 const co = require('co');
 const bunyan = require('bunyan');
+const bformat = require('bunyan-format');
 const dbUtils = require('@panosoft/slate-db-utils');
+
+const formatOut = bformat({ outputMode: 'long' });
 
 const logger = bunyan.createLogger({
 	name: 'slate-init-db',
+	stream: formatOut,
 	serializers: bunyan.stdSerializers
 });
 
-const exit = exitCode => setTimeout(() => process.exit(exitCode), 1000);
+const exit = exitCode => setTimeout(_ => process.exit(exitCode), 1000);
 
 process.on('uncaughtException', err => {
 	logger.error({err: err}, `Uncaught exception:`);
@@ -22,55 +26,119 @@ process.on('unhandledRejection', (reason, p) => {
 	logger.error("Unhandled Rejection at: Promise ", p, " reason: ", reason);
 	exit(1);
 });
-process.on('SIGINT', () => {
+process.on('SIGINT', _ => {
 	logger.info(`SIGINT received.`);
 	exit(0);
 });
-process.on('SIGTERM', () => {
+process.on('SIGTERM', _ => {
 	logger.info(`SIGTERM received.`);
 	exit(0);
 });
 
 program
-	.option('-c, --config-filename <s>', 'configuration file name')
-	.option('-n, --new-database <s>', 'name of database to create')
-	.option('-t, --table-type <s>', 'type of events table to create in new database:  must be "source"  or "destination"')
+	.option('-c, --config-filename <path>', 'configuration file name')
+	.option('-n, --new-database <name>', 'name of database to create')
+	.option('-t, --table-type <source | destination>', 'type of events table to create in new database:  must be "source"  or "destination"')
 	.option('--dry-run', 'if specified, display run parameters and end program without performing database initialization')
 	.parse(process.argv);
 
-const validateArguments = arguments => {
-	var errors = [];
-	if (!arguments.configFilename || is.not.string(arguments.configFilename))
-		errors = R.append('config-filename is invalid:  ' + arguments.configFilename, errors);
-	// non-quoted Postgresql identifier must begin with 'a-z' or '_' and remaining characters must be 'a-z', '0-9' or '_'
-	if (!arguments.newDatabase || !(/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(arguments.newDatabase))) {
-		errors = R.append(`new-database is invalid:  "${arguments.newDatabase}"`, errors);
-	}
-	if (arguments.tableType !== 'source' && arguments.tableType !== 'destination') {
-		errors = R.append(`table-type is invalid:  "${arguments.tableType}"`, errors);
-	}
-	if (arguments.args.length > 0)
-		errors = R.append(`Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${program.args}`, errors);
-	return errors;
-};
+// const validateArguments = arguments => {
+// 	let errors = [];
+// 	if (!arguments.configFilename || is.not.string(arguments.configFilename)) {
+// 		errors = R.append('config-filename is invalid:  ' + arguments.configFilename, errors);
+// 	}
+// 	// non-quoted Postgresql identifier must begin with 'a-z' or '_' and remaining characters must be 'a-z', '0-9' or '_'
+// 	if (!arguments.newDatabase || !(R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, arguments.newDatabase).length)) {
+// 		errors = R.append(`new-database is invalid:  "${arguments.newDatabase}"`, errors);
+// 	}
+// 	if (arguments.tableType !== 'source' && arguments.tableType !== 'destination') {
+// 		errors = R.append(`table-type is invalid:  "${arguments.tableType}"`, errors);
+// 	}
+// 	if (arguments.args.length > 0) {
+// 		errors = R.append(`Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${program.args}`, errors);
+// 	}
+// 	return errors;
+// };
+// const validator = validation => R.compose(R.filter(e => e.length), R.map(v => validation(v) ? '' : v.errMsg));
+// const isValidString = s => s && s.length && is.string(s);
+// const validateArguments = args => {
+// 	return validator(v => v.validIf(args))([
+// 		{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
+// 		{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
+// 		{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
+// 		{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
+// 	]);
+// };
+// const validator = validation => R.map(
+// 	function(v) {
+// 		if (validation(v)) {
+// 			return '';
+// 		}
+// 		else {
+// 			return v.errMsg;
+// 		}
+// 	});
 
+var trace = R.curry((tag, x) => {
+	console.log(tag, x);
+	return x;
+});
+
+const validator = validation => R.compose(trace('after filter'), R.filter(e => e.length), R.map(v => validation(v) ? '' : v.errMsg));
+const isValidString = s => s && s.length && is.string(s);
+const validateArguments = args => {
+	// var mapfn = R.map(v => v.validIf(args) ? '' : v.errMsg);
+	// var mapResult = mapfn([
+	// 	{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
+	// 	{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
+	// 	{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
+	// 	{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
+	// ]);
+	//
+	// console.log(mapResult);
+	//
+	// var validatorResults = validator(v => v.validIf(args)) ([
+	// 	{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
+	// 	{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
+	// 	{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
+	// 	{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
+	// ]);
+	//
+	// console.log(validatorResults);
+	//
+	return validator(v => v.validIf(args)) ([
+		{validIf: args => isValidString(args.configFilename), errMsg: 'config-filename is invalid:  ' + args.configFilename},
+		{validIf: args => R.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args.newDatabase).length, errMsg: `new-database is invalid:  "${args.newDatabase}"`},
+		{validIf: args => args.tableType === 'source' || args.tableType === 'destination', errMsg: `table-type is invalid:  "${args.tableType}"`},
+		{validIf: args => args.args.length === 0, errMsg: `Some command arguments exist after processing command options.  There may be command options after " -- " in the command line.  Unprocessed Command Arguments:  ${args.args}`}
+	]);
+};
+// const validateConnectionParameters = (parameters, parametersName) => {
+// 	var errors = [];
+// 	if (parameters) {
+// 		if (!parameters.host || is.not.string(parameters.host)) {
+// 			errors = R.append(`${parametersName}.host is missing or invalid:  ${parameters.host}`, errors);
+// 		}
+// 		if (parameters.userName && is.not.string(parameters.userName)) {
+// 			errors = R.append(`${parametersName}.userName is invalid:  ${parameters.userName}`, errors);
+// 		}
+// 		if (parameters.password && is.not.string(parameters.password)) {
+// 			errors = R.append(`${parametersName}.password is invalid:  ${parameters.password}`, errors);
+// 		}
+// 	}
+// 	else {
+// 		errors = R.append(`connection parameters for ${parametersName} are missing or invalid`, errors);
+// 	}
+// 	return errors;
+// };
 const validateConnectionParameters = (parameters, parametersName) => {
-	var errors = [];
-	if (parameters) {
-		if (!parameters.host || is.not.string(parameters.host)) {
-			errors = R.append(`${parametersName}.host is missing or invalid:  ${parameters.host}`, errors);
-		}
-		if (parameters.userName && is.not.string(parameters.userName)) {
-			errors = R.append(`${parametersName}.userName is invalid:  ${parameters.userName}`, errors);
-		}
-		if (parameters.password && is.not.string(parameters.password)) {
-			errors = R.append(`${parametersName}.password is invalid:  ${parameters.password}`, errors);
-		}
-	}
-	else {
-		errors = R.append(`connection parameters for ${parametersName} are missing or invalid`, errors);
-	}
-	return errors;
+	if (!parameters)
+		return [`connection parameters for ${parametersName} are missing or invalid`];
+	return validator(v => v.validIf(parameters))([
+		{validIf: parameters => isValidString(parameters.host), errMsg: `${parametersName}.host is missing or invalid:  ${parameters.host}`},
+		{validIf: parameters => isValidString(parameters.user), errMsg: `${parametersName}.userName is invalid:  ${parameters.user}`},
+		{validIf: parameters => isValidString(parameters.password), errMsg: `${parametersName}.password is invalid:  ${parameters.password}`}
+	]);
 };
 
 const logConfig = (config, arguments) => {
