@@ -48,15 +48,17 @@ commander
 const validator = validation => R.compose(R.filter(e => e.length), R.map(v => validation(v) ? '' : v.errMsg(v.param)));
 const isValidOptionString = s => s && s.length && is.string(s) && !R.test(/^-/, s);
 const isPositiveInteger = n => n && is.integer(n) && is.positive(n);
-const isOptional = (o, key) => o[key] === undefined;
+const isBoolean = b => b === true || b === false;
+const isOptional = x => x === undefined;
 const validateParameters = args => {
 	return validator(v => v.validIf(args, v.param)) ([
-		{param: 'user', validIf: (args, param) => isOptional(args, param) || isValidOptionString(args[param]), errMsg: param => `${param} is invalid:  ${JSON.stringify(args[param])}`},
-		{param: 'password', validIf: (args, param) => isOptional(args, param) || isValidOptionString(args[param]), errMsg: param => `${param} is invalid:  "${args[parm]}"`},
-		{param: 'connectTimeout', validIf: (args, param) => isOptional(args, param) || isPositiveInteger(args[param]), errMsg: param => `${dasherize(param)} is not a positive integer:  ${JSON.stringify(args.__connectTimeout)}`},
+		{param: 'user', validIf: (args, param) => isOptional(args[param]) || isValidOptionString(args[param]), errMsg: param => `${param} is invalid:  ${JSON.stringify(args[param])}`},
+		{param: 'password', validIf: (args, param) => isOptional(args[param]) || isValidOptionString(args[param]), errMsg: param => `${param} is invalid:  "${args[parm]}"`},
+		{param: 'connectTimeout', validIf: (args, param) => isOptional(args[param]) || isPositiveInteger(args[param]), errMsg: param => `${dasherize(param)} is not a positive integer:  ${JSON.stringify(args.__connectTimeout)}`},
 		{param: 'host', validIf: (args, param) => isValidOptionString(args[param]), errMsg: param => `${param} is missing or invalid:  ${JSON.stringify(args[param])}`},
 		{param: 'newDatabase', validIf: (args, param) => isValidOptionString(args[param]) && R.test(/^[a-zA-Z_][a-zA-Z0-9_]*$/, args[param]), errMsg: param => `${dasherize(param)} is missing or invalid:  ${JSON.stringify(args[param])}`},
-		{param: 'tableType', validIf: (args, param) => isValidOptionString(args[param]) && (args[param] === 'source' || args[param] === 'destination'), errMsg: param => `${dasherize(param)} is missing or invalid:  ${JSON.stringify(args.tableType)}`},
+		{param: 'tableType', validIf: (args, param) => isValidOptionString(args[param]) && (args[param] === 'source' || args[param] === 'destination'), errMsg: param => `${dasherize(param)} is missing or invalid:  ${JSON.stringify(args[param])}`},
+		{param: 'dryRun', validIf: (args, param) => isOptional(args[param]) || isBoolean(args[param]), errMsg: param => `${dasherize(param)} is not valid:  ${JSON.stringify(args[param])}`},
 		{param: 'args', validIf: (args, param) => args[param].length === 0, errMsg: param => `Some command arguments were unrecognized.  There may be command arguments after " -- " or syntax errors in the command line.  Unrecognized Command Arguments:  ${args[param]}`}
 	]);
 };
@@ -251,15 +253,13 @@ const getParametersToValidate = co.wrap(function *(commander) {
 	const integerArgs = getIntegerValues(commander.opts());
 	const integerArgsAsString = {__connectTimeout: commander.opts()['connectTimeout']};
 	// user and password can be specified in the command line.
-	const stringArgs = R.merge(R.pick(['host', 'user', 'password', 'newDatabase', 'tableType', 'dryRun', 'args'], commander.opts()), R.pick(['args'], commander));
-	return R.mergeAll([stringArgs, integerArgs, integerArgsAsString, credentialArgs]);
+	const commandLineArgs = R.merge(R.pick(['host', 'user', 'password', 'newDatabase', 'tableType', 'dryRun', 'args'], commander.opts()), R.pick(['args'], commander));
+	return R.mergeAll([commandLineArgs, integerArgs, integerArgsAsString, credentialArgs]);
 });
 
 const initDb = co.wrap(function * (commander) {
 	const parametersToValidate = yield getParametersToValidate(commander);
 	const runParameters = R.pickBy((value, key) => value && key !== 'args' && key.substring(0, 2) !== '__', parametersToValidate);
-	console.log(parametersToValidate, 'parametersToValidate');
-	console.log(runParameters, 'runParameters');
 	const errors = yield validateParameters(parametersToValidate);
 	if (errors.length > 0) {
 		return {err: true, displayHelp: true, message: `Invalid command line arguments:${'\n' + R.join('\n', errors)}`};
