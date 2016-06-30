@@ -12,53 +12,26 @@ The purpose of slate-init-db is to create and initialize a new `Postgresql` data
 
     slate-init-db [options]
 
-  Options:
+    Options:
 
-    -h, --help                                  output usage information
-    -c, --config-filename <path>                configuration file name
-    -n, --new-database <name>                   name of database to create
-    -t, --table-type "source" | "destination"   type of events table to create in new database:  must be "source"  or "destination" (without quotes)
-    --dry-run                                   if specified, display run parameters and end program without performing database initialization
-
-### Sample configuration file
-
-```javascript
-var config = {
-	// optional parameter.  database connection timeout in milliseconds.  default value:  15000.
-	connectTimeout: 10000,
-	// Postgresql database server connection parameters
-	connectionParams: {
-		host: 'localhost',
-		// optional parameter.  connection attempt will fail if missing and needed by postgres database. Must have database creation privileges.
-		user: 'user1',
-		// optional parameter.  connection attempt will fail if missing and needed by postgres database.
-		password: 'password1'
-	}
-};
-module.exports = config;
-```
-
-#### connectTimeout
-> An optional parameter that specifies the maximum number of milliseconds to wait to connect to a database before throwing an Error.  Default value is `15000` milliseconds.
-
-#### connectionParams
-  > Parameters used to connect to the `Postgresql` database server
-
-| Field         | Required | Description
-| ------------- |:--------:| :---------------------------------------
-| host          | Yes      | database server name
-| user          | No       | database user name.  connection attempt will fail if missing and required by database.
-| password      | No       | database user password.  connection attempt will fail if missing and required by database.
+      -h, --help                               output usage information
+      --host <name>                            database server name
+      --user <name>                            database user name.  must have database creation privileges.  if not specified, prompt for user name.
+      --password <password>                    database password.  if not specified, prompt for password.
+      --connect-timeout <millisecs>            database connection timeout.  if not specified, defaults to 15000 millisecs.
+      -n, --new-database <name>                name of database to create
+      -t, --table-type <source | destination>  type of events table to create in new database:  must be "source"  or "destination"
+      --dry-run                                if specified, display run parameters and end program without performing database initialization
 
 # Operations
 ### Start up validations
-- Configuration parameters are validated
+- Run options are validated
 - Database to be created must NOT exist and its name must be a valid `Postgresql` identifier
-- If `slate-init-db` is started in `--dry-run` mode then it will validate and display configuration parameters without performing database initialization
-- All start up information and any configuration errors are logged
+- If `slate-init-db` is started in `--dry-run` mode then it will validate and display run options without performing database initialization
+- All start up information and any options errors are logged
 
 ### Error Recovery
-- All configuration and operational errors will be logged
+- All operational errors will be logged
 - If errors are reported when running `slate-init-db` then the new database was not initialized properly and MUST be deleted manually before re-running.
 
 <a href="databaseInitialization"></a>
@@ -97,8 +70,14 @@ CREATE INDEX events_event_name on events ((event #>> '{name}'));
 CREATE INDEX events_ts on events (ts);
 
 CREATE INDEX events_entity_id on events (entity_id);
+```
 
---create NOTIFY trigger function (SOURCE DATABASE ONLY)
+### Source ONLY
+
+#### Events Table trigger and trigger function (the trigger and trigger function do not exist in a destination database)
+
+```sql
+--create NOTIFY trigger function
 
 CREATE FUNCTION events_notify_trigger() RETURNS trigger AS $$
 DECLARE
@@ -108,13 +87,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
---create NOTIFY trigger (SOURCE DATABASE ONLY)
+--create NOTIFY trigger
 
 CREATE TRIGGER events_table_trigger AFTER INSERT ON events
 FOR EACH ROW EXECUTE PROCEDURE events_notify_trigger();
 ```
-
-### Source ONLY
 
 #### ID Table Initialization (this table does not exist in a destination database)
 
