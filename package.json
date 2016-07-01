@@ -2,7 +2,9 @@
   "name": "@panosoft/slate-init-db",
   "version": "0.1.1",
   "description": "",
-  "bin": "bin/run.js",
+  "bin": {
+    "slate-init-db": "bin/run.js"
+  },
   "scripts": {
     "patch": "npm version patch && git push --follow-tags && npm publish",
     "minor": "npm version minor && git push --follow-tags && npm publish"
