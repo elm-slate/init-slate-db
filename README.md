@@ -1,7 +1,7 @@
 # slate-init-db
-Creates and initializes a Postgresql database for use by Slate applications, e.g. [`slate-replicator`](https://github.com/panosoft/slate-replicator).
+Creates and initializes a Postgresql database for use by Slate applications.
 
-The purpose of slate-init-db is to create and initialize a new `Postgresql` database to contain either a `source` or `destination` events table (see [`Database Initialization`](#databaseInitialization)).
+The purpose of slate-init-db is to create and initialize a new `Postgresql` database to contain either a `source` or `destination` events table (see [`Database Initialization`](#database-initialization)).
 
 # Installation
 > npm install -g @panosoft/slate-init-db
@@ -34,7 +34,6 @@ The purpose of slate-init-db is to create and initialize a new `Postgresql` data
 - All operational errors will be logged
 - If errors are reported when running `slate-init-db` then the new database was not initialized properly and MUST be deleted manually before re-running.
 
-<a href="databaseInitialization"></a>
 # Database Initialization
 Initialization differs depending on the `table-type`.
 
