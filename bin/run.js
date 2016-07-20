@@ -268,8 +268,9 @@ const initDb = co.wrap(function * (commander) {
 	}
 	logConfig(runParameters);
 	const sqlStatements = {
-		notifyTriggerFunction: fs.readFileSync('sql/eventsNotifyTriggerFunction.sql', 'utf8'),
-		insertEventsFunction: fs.readFileSync('sql/insertEventsFunction.sql', 'utf8')
+		notifyTriggerFunction: fs.readFileSync(path.resolve(__dirname, '../sql/eventsNotifyTriggerFunction.sql'), 'utf8'),
+		insertEventsFunction: fs.readFileSync(path.resolve(__dirname, '../sql/insertEventsFunction.sql'), 'utf8'),
+		restoreEventsFunction: fs.readFileSync(path.resolve(__dirname, '../sql/restoreEventsFunction.sql'), 'utf8')
 	};
 	if (runParameters.dryRun === true) {
 		return ({message: `--dry-run specified, ending program`});
