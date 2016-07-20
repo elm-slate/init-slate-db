@@ -156,19 +156,22 @@ const createEventsTable = co.wrap(function *(dbClient, dbClientDatabase) {
 });
 
 const createSourceDatabaseFunctions = co.wrap(function *(dbClient, dbClientDatabase, sqlStatements) {
-	result = yield dbUtils.executeSQLStatement(dbClient, sqlStatements.notifyTriggerFunction);
+	yield dbUtils.executeSQLStatement(dbClient, sqlStatements.notifyTriggerFunction);
 	logger.info(`events_notify_trigger function created in database "${dbClientDatabase}"`);
-	result = yield dbUtils.executeSQLStatement(dbClient, sqlStatements.insertEventsFunction);
+	yield dbUtils.executeSQLStatement(dbClient, sqlStatements.insertEventsFunction);
 	logger.info(`insert_events function created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, sqlStatements.restoreEventsFunction);
+	logger.info(`restore_events function created in database "${dbClientDatabase}"`);
 });
 
 const createSourceTable = co.wrap(function *(dbClient, dbClientDatabase, sqlStatements) {
 	try {
 		yield createEventsTable(dbClient, dbClientDatabase);
 		yield createSourceDatabaseFunctions(dbClient, dbClientDatabase, sqlStatements);
-		var sqlStatement = `CREATE TRIGGER events_table_trigger AFTER INSERT ON events FOR EACH ROW EXECUTE PROCEDURE events_notify_trigger()`;
-		result = yield dbUtils.executeSQLStatement(dbClient, sqlStatement);
+		yield dbUtils.executeSQLStatement(dbClient, `CREATE TRIGGER events_table_trigger AFTER INSERT ON events FOR EACH ROW EXECUTE PROCEDURE events_notify_trigger()`);
 		logger.info(`event_table_trigger created in database "${dbClientDatabase}"`);
+		yield dbUtils.executeSQLStatement(dbClient, `CREATE EXTENSION dblink`);
+		logger.info(`dblink extension created in database "${dbClientDatabase}"`);
 		yield createAndInitializeIdTable(dbClient, dbClientDatabase);
 	}
 	catch(err) {
