@@ -259,7 +259,7 @@ In order to recover the `source` database from the backup database, run the SQL 
 ```sql
 --restore the source database from a backup database on host 'backupDatabaseHostName' using database 'backupDatabaseName' accessed with database user 'backupDatabaseUser' and password 'backupDatabasePassword'
 
-SELECT * FROM restore_events(fromHost restore_events(fromHost := 'backupDatabaseHostName', fromDatabase := 'backupDatabaseName', fromDatabaseUser := 'backupDatabaseUser', fromDatabasePassword := 'backupDatabasePassword');
+SELECT * FROM restore_events(fromHost := 'backupDatabaseHostName', fromDatabase := 'backupDatabaseName', fromDatabaseUser := 'backupDatabaseUser', fromDatabasePassword := 'backupDatabasePassword');
 ```
 
 If there are any errors running the `restore_events` events function, then the cause of the errors must be corrected and the Recovery Steps need to be performed again **from the beginning**.
