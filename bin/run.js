@@ -141,7 +141,6 @@ const createEventsTable = co.wrap(function *(dbClient, dbClientDatabase) {
 		CREATE TABLE events (
 			id bigint NOT NULL,
 			ts timestamp with time zone NOT NULL,
-			entity_id uuid NOT NULL,
 			event jsonb NOT NULL,
 		CONSTRAINT events_pkey PRIMARY KEY (id))
 		WITH (OIDS=FALSE)`
@@ -151,8 +150,8 @@ const createEventsTable = co.wrap(function *(dbClient, dbClientDatabase) {
 	logger.info(`events_event_name index created in database "${dbClientDatabase}"`);
 	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_ts on events (ts)`);
 	logger.info(`events_ts index created in database "${dbClientDatabase}"`);
-	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_entity_id on events (entity_id)`);
-	logger.info(`events_entity_id index created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_data_entity_id on events ((event #>> '{data, entity_id}'))`);
+	logger.info(`events_event_data_entity_id index created in database "${dbClientDatabase}"`);
 });
 
 const createSourceDatabaseFunctions = co.wrap(function *(dbClient, dbClientDatabase, sqlStatements) {

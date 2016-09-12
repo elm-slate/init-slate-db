@@ -1,7 +1,7 @@
 CREATE FUNCTION restore_events(fromHost text, fromDatabase text, fromDatabaseUser text, fromDatabasePassword text, OUT rows_restored bigint, OUT next_insert_id bigint)
 	AS $$
 DECLARE
-	getEventsStmt CONSTANT text = 'SELECT id, ts, entity_id, event FROM events ORDER BY id';
+	getEventsStmt CONSTANT text = 'SELECT id, ts, event FROM events ORDER BY id';
 	getCountMaxIdStmt CONSTANT text = 'SELECT MAX(id) AS maxid, count(*) AS count FROM events';
 	connectionInfo text;
 	sourceEventsCount bigint;
@@ -31,10 +31,10 @@ BEGIN
 		RAISE EXCEPTION 'The from events table row count (%) is not equal to the from events table maximum id (%)', fromEventsCount, fromEventsMaxId USING HINT = 'The events table used to restore the Source events table is not valid';
 	END IF;
 	-- copy the events in order by id from the remote events table to the Source events table.
-	INSERT INTO events (id, ts, entity_id, event)
-		SELECT fe.id, fe.ts, fe.entity_id, fe.event
+	INSERT INTO events (id, ts, event)
+		SELECT fe.id, fe.ts, fe.event
 			FROM dblink(connectionInfo, getEventsStmt)
-			AS fe(id bigint, ts timestamp with time zone, entity_id uuid, event jsonb);
+			AS fe(id bigint, ts timestamp with time zone, event jsonb);
 	GET DIAGNOSTICS rows_restored = ROW_COUNT;
 	SELECT MAX(id), count(*) FROM events INTO sourceEventsMaxId, sourceEventsCount;
 	IF sourceEventsCount != sourceEventsMaxId THEN
