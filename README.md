@@ -71,7 +71,7 @@ CREATE INDEX events_event_name on events ((event #>> '{name}'));
 
 CREATE INDEX events_ts on events (ts);
 
-CREATE INDEX events_event_data_entity_id on events ((event #>> '{data, entity_id}'));
+CREATE INDEX events_event_data_entityid on events ((event #>> '{data, entityId}'));
 ```
 
 ### Source ONLY
