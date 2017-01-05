@@ -1,5 +1,5 @@
-CREATE FUNCTION events_notify_trigger()
-	RETURNS trigger AS $$
+CREATE FUNCTION notify_event_insert()
+	RETURNS TRIGGER AS $$
 DECLARE
 BEGIN
 	PERFORM pg_notify('eventsinsert', json_build_object('table', TG_TABLE_NAME, 'id', NEW.id )::text);
