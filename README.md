@@ -39,7 +39,7 @@ slate-init-db requires the `Postgresql contrib` package be installed on the `sou
 # Database Initialization
 Initialization differs depending on the `table-type`.
 
-When creating a `source` database, the following source-only database objects are created: an `id` table, an `insert_events` function, a `restore_events` function, an `events` table trigger and its trigger function.
+When creating a `source` database, the following source-only database objects are created: an `id` table, an `insert_events` function, a `restore_events` function, an `events` table NOTIFY trigger and its trigger function, and an `events` table COMMAND CHECK trigger and it trigger function.
 
 The `id` table in a `source` database is used to assign ids to the rows as they are inserted into the `events` table by the `insert_events` function. The ids start at 1 and are guaranteed to be consecutive.
 
@@ -76,12 +76,12 @@ CREATE INDEX events_event_data_entityid on events ((event #>> '{data, entityId}'
 
 ### Source ONLY
 
-#### Events Table trigger and trigger function (the trigger and trigger function do not exist in a destination database)
+#### Events Table NOTIFY trigger and trigger function (the trigger and trigger function do not exist in a destination database)
 
 ```sql
 --create NOTIFY trigger function
 
-CREATE FUNCTION events_notify_trigger() RETURNS trigger AS $$
+CREATE FUNCTION notify_event_insert() RETURNS trigger AS $$
 DECLARE
 BEGIN
   PERFORM pg_notify('eventsinsert', json_build_object('table', TG_TABLE_NAME, 'id', NEW.id )::text);
@@ -91,8 +91,26 @@ $$ LANGUAGE plpgsql;
 
 --create NOTIFY trigger
 
-CREATE TRIGGER events_table_trigger AFTER INSERT ON events
-FOR EACH ROW EXECUTE PROCEDURE events_notify_trigger();
+CREATE TRIGGER notify_insert AFTER INSERT ON events
+FOR EACH ROW EXECUTE PROCEDURE notify_event_insert();
+```
+
+#### Events Table COMMAND CHECK trigger and trigger function (the trigger and trigger function do not exist in a destination database)
+
+```sql
+--create COMMAND CHECK trigger function
+
+CREATE FUNCTION filter_sql_command()
+	RETURNS TRIGGER as $$
+BEGIN
+	RAISE EXCEPTION 'cannot perform SQL command on events table:  %', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+--create COMMAND CHECK trigger
+
+CREATE TRIGGER check_sql_command BEFORE UPDATE OR DELETE OR TRUNCATE ON events
+FOR EACH STATEMENT EXECUTE PROCEDURE filter_sql_command();
 ```
 
 #### ID Table Initialization (this table does not exist in a destination database)

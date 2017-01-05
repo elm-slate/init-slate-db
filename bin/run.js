@@ -156,7 +156,9 @@ const createEventsTable = co.wrap(function *(dbClient, dbClientDatabase) {
 
 const createSourceDatabaseFunctions = co.wrap(function *(dbClient, dbClientDatabase, sqlStatements) {
 	yield dbUtils.executeSQLStatement(dbClient, sqlStatements.notifyTriggerFunction);
-	logger.info(`events_notify_trigger function created in database "${dbClientDatabase}"`);
+	logger.info(`notify_event_insert function created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, sqlStatements.commandFilterTriggerFunction);
+	logger.info(`filter_sql_command function created in database "${dbClientDatabase}"`);
 	yield dbUtils.executeSQLStatement(dbClient, sqlStatements.insertEventsFunction);
 	logger.info(`insert_events function created in database "${dbClientDatabase}"`);
 	yield dbUtils.executeSQLStatement(dbClient, sqlStatements.restoreEventsFunction);
@@ -167,8 +169,10 @@ const createSourceTable = co.wrap(function *(dbClient, dbClientDatabase, sqlStat
 	try {
 		yield createEventsTable(dbClient, dbClientDatabase);
 		yield createSourceDatabaseFunctions(dbClient, dbClientDatabase, sqlStatements);
-		yield dbUtils.executeSQLStatement(dbClient, `CREATE TRIGGER events_table_trigger AFTER INSERT ON events FOR EACH ROW EXECUTE PROCEDURE events_notify_trigger()`);
-		logger.info(`event_table_trigger created in database "${dbClientDatabase}"`);
+		yield dbUtils.executeSQLStatement(dbClient, `CREATE TRIGGER notify_insert AFTER INSERT ON events FOR EACH ROW EXECUTE PROCEDURE notify_event_insert()`);
+		logger.info(`notify_insert trigger created in database "${dbClientDatabase}"`);
+		yield dbUtils.executeSQLStatement(dbClient, `CREATE TRIGGER check_sql_command BEFORE UPDATE OR DELETE OR TRUNCATE ON events FOR EACH STATEMENT EXECUTE PROCEDURE filter_sql_command()`);
+		logger.info(`check_sql_command trigger created in database "${dbClientDatabase}"`);
 		yield dbUtils.executeSQLStatement(dbClient, `CREATE EXTENSION dblink`);
 		logger.info(`dblink extension created in database "${dbClientDatabase}"`);
 		yield createAndInitializeIdTable(dbClient, dbClientDatabase);
@@ -270,7 +274,8 @@ const initDb = co.wrap(function * (commander) {
 	}
 	logConfig(runParameters);
 	const sqlStatements = {
-		notifyTriggerFunction: fs.readFileSync(path.resolve(__dirname, '../sql/eventsNotifyTriggerFunction.sql'), 'utf8'),
+		notifyTriggerFunction: fs.readFileSync(path.resolve(__dirname, '../sql/notifyEventInsertFunction.sql'), 'utf8'),
+		commandFilterTriggerFunction: fs.readFileSync(path.resolve(__dirname, '../sql/filterSQLCommandFunction.sql'), 'utf8'),
 		insertEventsFunction: fs.readFileSync(path.resolve(__dirname, '../sql/insertEventsFunction.sql'), 'utf8'),
 		restoreEventsFunction: fs.readFileSync(path.resolve(__dirname, '../sql/restoreEventsFunction.sql'), 'utf8')
 	};
