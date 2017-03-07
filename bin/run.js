@@ -146,12 +146,16 @@ const createEventsTable = co.wrap(function *(dbClient, dbClientDatabase) {
 		WITH (OIDS=FALSE)`
 	);
 	logger.info(`events table created in database "${dbClientDatabase}"`);
-	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_name on events ((event #>> '{name}'))`);
-	logger.info(`events_event_name index created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_target on events ((event #>> '{target}'))`);
+	logger.info(`events_event_target index created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_operation on events ((event #>> '{operation}'))`);
+	logger.info(`events_event_operation index created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_propertyname on events ((event #>> '{propertyName}'))`);
+	logger.info(`events_event_propertyname index created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_entityid on events ((event #>> '{entityId}'))`);
+	logger.info(`events_event_entityid index created in database "${dbClientDatabase}"`);
 	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_ts on events (ts)`);
 	logger.info(`events_ts index created in database "${dbClientDatabase}"`);
-	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_data_entityid on events ((event #>> '{data, entityId}'))`);
-	logger.info(`events_event_data_entityid index created in database "${dbClientDatabase}"`);
 });
 
 const createSourceDatabaseFunctions = co.wrap(function *(dbClient, dbClientDatabase, sqlStatements) {
