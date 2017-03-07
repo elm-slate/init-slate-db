@@ -67,11 +67,15 @@ WITH (
 
 --create events table indexes
 
-CREATE INDEX events_event_name on events ((event #>> '{name}'));
+CREATE INDEX events_event_target on events ((event #>> '{target}'));
+
+CREATE INDEX events_event_operation on events ((event #>> '{operation}'));
+
+CREATE INDEX events_event_propertyname on events ((event #>> '{propertyName}'));
 
 CREATE INDEX events_ts on events (ts);
 
-CREATE INDEX events_event_data_entityid on events ((event #>> '{data, entityId}'));
+CREATE INDEX events_event_entityid on events ((event #>> '{entityId}'));
 ```
 
 ### Source ONLY
@@ -84,7 +88,7 @@ CREATE INDEX events_event_data_entityid on events ((event #>> '{data, entityId}'
 CREATE FUNCTION notify_event_insert() RETURNS trigger AS $$
 DECLARE
 BEGIN
-  PERFORM pg_notify('eventsinsert', json_build_object('table', TG_TABLE_NAME, 'id', NEW.id )::text);
+  PERFORM pg_notify('eventsinsert', json_build_object('table', TG_TABLE_NAME, 'id', NEW.id, 'event', NEW.event )::text);
   RETURN new;
 END;
 $$ LANGUAGE plpgsql;
