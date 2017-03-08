@@ -67,15 +67,15 @@ WITH (
 
 --create events table indexes
 
-CREATE INDEX events_event_target on events ((event #>> '{target}'));
+CREATE INDEX events_event_entityname on events ((event #>> '{entityName}'));
 
 CREATE INDEX events_event_operation on events ((event #>> '{operation}'));
 
 CREATE INDEX events_event_propertyname on events ((event #>> '{propertyName}'));
 
-CREATE INDEX events_ts on events (ts);
-
 CREATE INDEX events_event_entityid on events ((event #>> '{entityId}'));
+
+CREATE INDEX events_ts on events (ts);
 ```
 
 ### Source ONLY
