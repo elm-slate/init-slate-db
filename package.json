@@ -1,6 +1,6 @@
 {
   "name": "@elm-slate/init-slate-db",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "",
   "bin": {
     "init-slate-db": "bin/run.js"
