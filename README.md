@@ -1,18 +1,17 @@
-# slate-init-db
-Creates and initializes a Postgresql database for use by Slate applications.
+# Creates and initializes a Postgresql database for use by Slate applications.
 
-The purpose of slate-init-db is to create and initialize a new `Postgresql` database to contain either a `source` or `destination` events table (see [`Database Initialization`](#database-initialization)).
+The purpose of init-slate-db is to create and initialize a new `Postgresql` database to contain either a `source` or `destination` events table (see [`Database Initialization`](#database-initialization)).
 
-slate-init-db requires the `Postgresql contrib` package be installed on the `source` database server when initializing a `source` database so that the `dblink` extension can be installed (see [`Source Database Disaster Recovery`](#source-database-disaster-recovery)).
+init-slate-db requires the `Postgresql contrib` package be installed on the `source` database server when initializing a `source` database so that the `dblink` extension can be installed (see [`Source Database Disaster Recovery`](#source-database-disaster-recovery)).
 
 # Installation
-> npm install -g @panosoft/slate-init-db
+> npm install -g git://github.com/elm-slate/init-slate-db
 
 # Usage
 
-#### Run slate-init-db
+#### Run init-slate-db
 
-    slate-init-db [options]
+    init-slate-db [options]
 
     Options:
 
@@ -29,12 +28,12 @@ slate-init-db requires the `Postgresql contrib` package be installed on the `sou
 ### Start up validations
 - Run options are validated
 - Database to be created must NOT exist and its name must be a valid `Postgresql` identifier
-- If `slate-init-db` is started in `--dry-run` mode then it will validate and display run options without performing database initialization
+- If `init-slate-db` is started in `--dry-run` mode then it will validate and display run options without performing database initialization
 - All start up information and any options errors are logged
 
 ### Error Recovery
 - All operational errors will be logged
-- If errors are reported when running `slate-init-db` then the new database was not initialized properly and MUST be deleted manually before re-running
+- If errors are reported when running `init-slate-db` then the new database was not initialized properly and MUST be deleted manually before re-running
 
 # Database Initialization
 Initialization differs depending on the `table-type`.
@@ -214,15 +213,15 @@ DECLARE
 	fromEventsMaxId bigint;
 BEGIN
 	connectionInfo := 'host=' || fromHost || ' dbname=' || fromDatabase || ' user=' || fromDatabaseUser || ' password=' || fromDatabasePassword;
-	-- get row count from Source events table.  must be 0 after being created by slate-init-db.
+	-- get row count from Source events table.  must be 0 after being created by init-slate-db.
 	SELECT count(*) from events into sourceEventsCount;
 	IF sourceEventsCount != 0 THEN
-		RAISE EXCEPTION 'Source events table row count (%) is not 0', sourceEventsCount USING HINT = 'The Source events database must be initialized with slate-init-db';
+		RAISE EXCEPTION 'Source events table row count (%) is not 0', sourceEventsCount USING HINT = 'The Source events database must be initialized with init-slate-db';
 	END IF;
-	-- get next event id from id table.  must be 1 after being created by slate-init-db.
+	-- get next event id from id table.  must be 1 after being created by init-slate-db.
 	SELECT id from id into sourceNextIdValue;
 	IF sourceNextIdValue != 1 THEN
-		RAISE EXCEPTION 'Source id table id value (%) is not 1', sourceNextIdValue USING HINT = 'The Source events database must be initialized with slate-init-db';
+		RAISE EXCEPTION 'Source id table id value (%) is not 1', sourceNextIdValue USING HINT = 'The Source events database must be initialized with init-slate-db';
 	END IF;
 	-- get maximum event id and row count from events table in remote database being used to restore the Source events table.
 	-- maximum event id must be 1 or greater and equal to the row count.
@@ -259,7 +258,7 @@ If a `source` database disaster occurs, the `source` database tables can be rest
 
 To run the `restore_events` function, the `Postgresql contrib` package must be installed on the database server where the `source` database resides.
 
-The `dblink` extension from the `Postgresql contrib` package must be installed into the `source` database.  This extension is installed by `slate-init-db` when a `source` database is initialized.
+The `dblink` extension from the `Postgresql contrib` package must be installed into the `source` database.  This extension is installed by `init-slate-db` when a `source` database is initialized.
 
 An online backup database is required to perform the disaster recovery procedure.
 
@@ -269,7 +268,7 @@ One or more online backup databases can be created by using the `slate-replicato
 - Stop any programs using the `source` database and drop any connections to it
 - Stop any programs modifying the backup database
 - Delete the `source` database being recovered (if it still exists and is corrupt)
-- Create and initialize a new `source` database using `slate-init-db`
+- Create and initialize a new `source` database using `init-slate-db`
 - Run the `restore_events` function with parameters pointing to the online backup database while connected to the newly initialized `source` database
 - Optionally use the eventsDiff program in the `slate-replicator` project to compare the restored `source` database events table with the backup database events table
 

@@ -11,12 +11,12 @@ DECLARE
 	fromEventsMaxId bigint;
 BEGIN
 	connectionInfo := 'host=' || fromHost || ' dbname=' || fromDatabase || ' user=' || fromDatabaseUser || ' password=' || fromDatabasePassword;
-	-- get row count from Source events table.  must be 0 after being created by slate-init-db.
+	-- get row count from Source events table.  must be 0 after being created by init-slate-db.
 	SELECT count(*) from events into sourceEventsCount;
 	IF sourceEventsCount != 0 THEN
 		RAISE EXCEPTION 'Source events table row count (%) is not 0', sourceEventsCount USING HINT = 'The Source events database must be initialized with slate-init-db';
 	END IF;
-	-- get next event id from id table.  must be 1 after being created by slate-init-db.
+	-- get next event id from id table.  must be 1 after being created by init-slate-db.
 	SELECT id from id into sourceNextIdValue;
 	IF sourceNextIdValue != 1 THEN
 		RAISE EXCEPTION 'Source id table id value (%) is not 1', sourceNextIdValue USING HINT = 'The Source events database must be initialized with slate-init-db';

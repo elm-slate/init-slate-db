@@ -1,15 +1,14 @@
 {
-  "name": "@panosoft/slate-init-db",
+  "name": "@elm-slate/init-slate-db",
   "version": "0.1.7",
   "description": "",
   "bin": {
-    "slate-init-db": "bin/run.js"
+    "init-slate-db": "bin/run.js"
   },
   "scripts": {
     "patch": "npm version patch && git push --follow-tags",
     "minor": "npm version minor && git push --follow-tags"
   },
-  "repository": "panosoft/slate-init-db",
   "license": "Unlicense",
   "author": "",
   "dependencies": {
