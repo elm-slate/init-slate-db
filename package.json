@@ -6,8 +6,8 @@
     "slate-init-db": "bin/run.js"
   },
   "scripts": {
-    "patch": "npm version patch && git push --follow-tags && npm publish",
-    "minor": "npm version minor && git push --follow-tags && npm publish"
+    "patch": "npm version patch && git push --follow-tags",
+    "minor": "npm version minor && git push --follow-tags"
   },
   "repository": "panosoft/slate-init-db",
   "license": "Unlicense",
