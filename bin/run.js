@@ -11,7 +11,7 @@ const co = require('co');
 const bunyan = require('bunyan');
 const bformat = require('bunyan-format');
 const {dasherize} = require('underscore.string');
-const dbUtils = require('@panosoft/slate-db-utils');
+const dbUtils = require('@elm-slate/db-utils');
 
 const formatOut = bformat({ outputMode: 'long' });
 
