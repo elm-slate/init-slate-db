@@ -74,6 +74,8 @@ CREATE INDEX events_event_propertyname on events ((event #>> '{propertyName}'));
 
 CREATE INDEX events_event_entityid on events ((event #>> '{entityId}'));
 
+CREATE INDEX events_event_metadata_command on events ((event #>> '{metadata, command}'));
+
 CREATE INDEX events_ts on events (ts);
 ```
 

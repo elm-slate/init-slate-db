@@ -154,6 +154,8 @@ const createEventsTable = co.wrap(function *(dbClient, dbClientDatabase) {
 	logger.info(`events_event_propertyname index created in database "${dbClientDatabase}"`);
 	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_entityid on events ((event #>> '{entityId}'))`);
 	logger.info(`events_event_entityid index created in database "${dbClientDatabase}"`);
+	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_event_metadata_command on events ((event #>> '{metadata, command}'))`);
+	logger.info(`events_event_metadata_command index created in database "${dbClientDatabase}"`);
 	yield dbUtils.executeSQLStatement(dbClient, `CREATE INDEX events_ts on events (ts)`);
 	logger.info(`events_ts index created in database "${dbClientDatabase}"`);
 });
